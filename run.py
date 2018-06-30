@@ -20,13 +20,14 @@ class Trip:
                 self.price = price
 
 class Route:
-        def __init__(self, name, km_per_trip, refund_per_km, price_per_km):
+        def __init__(self, name, route_type, km_per_trip, refund_per_km, price_per_km):
                 self.km_per_trip = km_per_trip
                 self.refund_per_km = refund_per_km
                 self.name = name
                 self.trips = []
                 self.price_per_km = price_per_km
-
+                self.route_type = route_type
+                
         def add_trip(self, date, price):
                 if price is None:
                         price = self.km_per_trip * self.price_per_km
@@ -76,7 +77,7 @@ class Route:
                 self.trips = new_trips
 
         def report(self):
-                print("Trip: {}".format(self.name))
+                print("Trip: {} ({})".format(self.name, self.route_type))
                 print(" - Trips: {}".format(len(self.trips)))
                 print(" - Total KM: {}".format(self.total_km()))
                 print(" - Total price: {} euro".format(self.total_price()))
@@ -90,19 +91,21 @@ class Route:
                                 )
                         )
 
-delftTrips = Route("Delft <> Huizen", 100.0, True, avg_price_per_km)
-amsterdamCarTrips = Route("Amsterdam Zeeburg <> Huizen", 40.0, True, avg_price_per_km)
-amsterdamOVTrips = Route("Amsterdam OV", 4.5, False, 0.0)
-
+delftTrips = Route("Delft <> Huizen", "Car", 100.0, True, avg_price_per_km)
+amsterdamCarTrips = Route("Amsterdam Zeeburg <> Huizen", "Car", 40.0, True, avg_price_per_km)
+amsterdamOVTrips = Route("Amsterdam OV", "Public Transit", 4.5, False, 0.0)
+amsterdamParking = Route("Amsterdam Zeeburg parking", "Parking", 0.0, True, 0.0)
 
 parser = argparse.ArgumentParser(description='Calculate expenses')
 parser.add_argument('--ov-csv', nargs='*', type=argparse.FileType('r'))
 parser.add_argument('--fromday', default=arrow.now().shift(months=-1).format('YYYY-MM-DD'))
 parser.add_argument('--today', default=arrow.now().format('YYYY-MM-DD'))
+parser.add_argument('--euro95-price', default=avg_liter_price, type=int)
 
 args = parser.parse_args()
 
-print(repr(args))
+# print(repr(args))
+avg_liter_price = args.euro95_price
 
 fromday = arrow.get(args.fromday, 'YYYY-MM-DD')
 today =  arrow.get(args.today, 'YYYY-MM-DD')
@@ -147,11 +150,13 @@ if args.ov_csv is not None:
 for day in set(daysInAmsterdam):
         amsterdamCarTrips.add_trip(day, None)
         amsterdamCarTrips.add_trip(day, None)
+        amsterdamParking.add_trip(day, 1.0)
 
 leftoverDays = []
 
 amsterdamCarTrips.remove_trips_not_in_days(weekdays, leftoverDays)
 amsterdamOVTrips.remove_trips_not_in_days(weekdays, leftoverDays)
+amsterdamParking.remove_trips_not_in_days(weekdays, leftoverDays)
 
 for day in set(leftoverDays):
         delftTrips.add_trip(day, None)
@@ -163,7 +168,7 @@ sumkm = 0.0
 sumprice = 0.0
 refundprice = 0.0
 
-for trip in [amsterdamCarTrips, amsterdamOVTrips, delftTrips]:
+for trip in [amsterdamOVTrips, amsterdamParking, amsterdamCarTrips, delftTrips]:
         trip.report()
         sumkm += trip.total_km()
         sumprice += trip.total_price()
