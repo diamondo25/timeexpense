@@ -2,4 +2,7 @@
 *.pdf
 *.csv
 *.log
+input/*
+output/*
+*.json
 holiday.txt

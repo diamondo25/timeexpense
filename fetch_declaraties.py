@@ -11,6 +11,11 @@ load_dotenv()
 USERNAME = os.getenv('FD_USERNAME')
 PASSWORD = os.getenv('FD_PASSWORD')
 MEDIUMID = os.getenv('FD_MEDIUMID')
+TRACELEVEL = os.getenv('FD_TRACELEVEL')
+if TRACELEVEL is None:
+	TRACELEVEL = 0
+else:
+	TRACELEVEL = int(TRACELEVEL)
 
 """
 Open https://www.ov-chipkaart.nl/mijn-ov-chip.htm
@@ -85,13 +90,14 @@ def fetch_page(method, url, query, data = None, just_return = False):
 		])
 
 
-
-	print('DBG: Loading %s %s' % (method, url))
-	print('DBG: ', query)
-	print('DBG: ', data)
+	if TRACELEVEL > 1:
+		print('DBG: Loading %s %s' % (method, url))
+		print('DBG: ', query)
+		print('DBG: ', data)
 
 	x = m(url, data=data, params=query)
-	print('DBG: ', x.url)
+	if TRACELEVEL > 0:
+		print('DBG: ', x.url)
 
 	if just_return:
 		return x
@@ -173,6 +179,11 @@ def fetch_transactions(year, month, formats = ['PDF', 'CSV']):
 	})
 
 	dlform = page.find(class_='export-transactions-form')
+
+	if dlform is None:
+		# No transactions?
+		return {}
+
 	inputs = dlform.find_all('input')
 	post_data = {}
 	for i in inputs:
@@ -205,12 +216,30 @@ def fetch_transactions(year, month, formats = ['PDF', 'CSV']):
 def download_transactions(year, month):
 	txs = fetch_transactions(year, month)
 	for fmt, data in txs.items():
-		print('Saving ', data['filename'])
-		with open(data['filename'], 'wb') as fd:
+
+		original_filename = data['filename']
+		# Make more sane filenames
+		filename = '%d-%d' % (year, month)
+		if '.pdf' in original_filename:
+			filename = 'declaratieoverzicht_' + filename + '.pdf'
+		else:
+			filename = 'transacties_' + filename + '.csv'
+
+
+		print('Saving %s ' % filename)
+		with open('input/' + filename, 'wb') as fd:
 		    for chunk in data['reader'].iter_content(chunk_size=128):
 		        fd.write(chunk)
 
 
-download_transactions(2019, 10)
-download_transactions(2019, 11)
-download_transactions(2019, 12)
+for i in range(0, 12):
+	m = i+1
+	download_transactions(2018, m)
+	download_transactions(2019, m)
+
+
+#download_transactions(2019, 10)
+#download_transactions(2019, 11)
+#download_transactions(2019, 12)
+download_transactions(2020, 1)
+download_transactions(2020, 2)
